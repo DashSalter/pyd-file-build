@@ -1,6 +1,3 @@
-# compiler_core.py
-# 核心编译逻辑模块
-
 import os
 import sys
 import shutil
@@ -9,7 +6,7 @@ from pathlib import Path
 from textwrap import dedent
 
 
-def compile_project(source_dir: str, output_dir: str, log_callback, interpreter_file):
+def compile_project(source_dir: str, log_callback, interpreter_file):
     """
     编译指定项目目录，并将实时日志通过回调函数发送。
 
@@ -21,7 +18,22 @@ def compile_project(source_dir: str, output_dir: str, log_callback, interpreter_
     返回:
         bool: 编译成功返回 True，否则返回 False。
     """
+    py_files = []  # 需要编译的py文件
+    output_path = ''  # 输出操作路径
+    setup_py_path = ''  # setup_py 路径
+    project_path = ''  # 源项目路径
+
     try:
+        # 拷贝整个文件夹，并且将最外面的文件夹重命名
+        file_path, file_name = os.path.split(source_dir)
+        output_dir = os.path.join(file_path, file_name + "_pyd")
+        # 如果文件已经存在则先删除
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir)
+
+        shutil.copytree(source_dir, output_dir)
+
+        # 确认输出目录和源目录
         project_path = Path(source_dir).resolve()
         output_path = Path(output_dir).resolve()
 
@@ -35,33 +47,26 @@ def compile_project(source_dir: str, output_dir: str, log_callback, interpreter_
 
         # 1. 查找所有 .py 文件
         log_callback("--- 步骤 1: 正在查找 .py 文件 ---")
+        py_files = [p for p in output_path.rglob("*.py") if p.name != "__init__.py"]
+        py_files = [p for p in output_path.rglob("*.py")
+                    if p.name != "__init__.py" and ".venv" not in p.parts]
 
-        # 排除 __init__.py 文件，因为它们通常不包含需要编译的代码
-        py_files = [p for p in project_path.rglob("*.py") if p.name != "__init__.py"]
-
-        if not py_files:
-            log_callback("[警告] 未找到任何需要编译的 .py 文件。")
-            return True  # technically not a failure
-
-        log_callback(f"找到 {len(py_files)} 个 .py 文件进行编译。")
-
-        # 2. 生成 setup.py 内容
         # 这种为每个文件创建 Extension 的方式最健壮，能确保模块导入路径正确
         extensions = []
         for py_file in py_files:
-            relative_path = py_file.relative_to(project_path)
+            relative_path = py_file.relative_to(output_path)
             # 将路径 'a/b/c.py' 转换为模块名 'a.b.c'
             module_name = ".".join(relative_path.with_suffix("").parts)
-            extensions.append(f'Extension("{module_name}", ["{relative_path}"])')
+            extensions.append(f'Extension("{module_name}", [r"{relative_path}"])')
 
         setup_content = dedent(f"""
             from setuptools import setup, Extension
             from Cython.Build import cythonize
-
+    
             ext_modules = [
                 {",    ".join(extensions)}
             ]
-
+    
             setup(
                 ext_modules=cythonize(
                     ext_modules,
@@ -70,8 +75,7 @@ def compile_project(source_dir: str, output_dir: str, log_callback, interpreter_
                 )
             )
         """)
-
-        # 3. 执行编译
+        # # 3. 执行编译
         log_callback("\n--- 步骤 2: 正在执行编译 ---")
         setup_py_path = project_path / "setup.py"
         setup_py_path.write_text(setup_content, encoding='utf-8')
@@ -117,6 +121,11 @@ def compile_project(source_dir: str, output_dir: str, log_callback, interpreter_
         build_dir = project_path / "build"
         c_files = project_path.rglob("*.c")
 
+        # 清除所有编译完成的py文件
+        for py_file in py_files:
+            os.remove(py_file)
+        log_callback("  - 已清理所有编译完成的py文件")
+
         # 删除临时 setup.py
         if 'setup_py_path' in locals() and setup_py_path.exists():
             setup_py_path.unlink()
@@ -136,3 +145,15 @@ def compile_project(source_dir: str, output_dir: str, log_callback, interpreter_
             log_callback(f"  - 已删除 {c_files_deleted} 个临时的 .c 文件")
 
         log_callback("\n清理完成。")
+
+
+if __name__ == '__main__':
+    # 示例用法
+    compile_project(r"D:\pyd-file-build\db_integration",  print, r'D:/Python312/python.exe')
+
+"""
+Pyarmor 8.0+ has only 3 commands: gen, reg, cfg
+Please replace `pyarmor` with `pyarmor-7` to run old commands
+
+ERROR    Python 3.11+ is not supported now
+"""

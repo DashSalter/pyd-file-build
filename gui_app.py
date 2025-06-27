@@ -10,7 +10,7 @@ from tkinter import messagebox
 # 导入我们的核心编译逻辑
 from compiler_core import compile_project
 
-"""
+r"""
 [无命令窗口]
 .venv\Scripts\pyinstaller.exe -w -y --clean .\gui_app.py -i fm.ico --upx-dir upx-3.96-win64
 """
@@ -52,36 +52,20 @@ class App(customtkinter.CTk):
         )
         self.source_button.grid(row=0, column=2, padx=10, pady=10)
 
-        # 输出目录
-        self.output_label = customtkinter.CTkLabel(
-            self.path_frame, text="输出目录:", width=100
-        )
-        self.output_label.grid(row=1, column=0, padx=10, pady=10)
-        self.output_entry = customtkinter.CTkEntry(
-            self.path_frame, placeholder_text="请选择存放编译后 .pyd 文件的目录"
-        )
-        self.output_entry.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
-        self.output_button = customtkinter.CTkButton(
-            self.path_frame, text="浏览...", width=80, command=self.select_output_dir
-        )
-        self.output_button.grid(row=1, column=2, padx=10, pady=10)
-
         # 选择解释器
         self.interpreter_label = customtkinter.CTkLabel(
             self.path_frame, text="编译解释器:", width=100
         )
-        self.interpreter_label.grid(row=2, column=0, padx=10, pady=10)
+        self.interpreter_label.grid(row=1, column=0, padx=10, pady=10)
 
-        # 需要补充的代码部分.....
-        # 下拉框选择各种版本的解释器
-        # 下拉框使用动态获取的版本
-        self.interpreter_combo = customtkinter.CTkComboBox(
-            self.path_frame,
-            width=200,
-            values=os.listdir(interpreter_path),
-            state="readonly"
+        self.interpreter_entry = customtkinter.CTkEntry(
+            self.path_frame, placeholder_text="请选择解释器python.exe文件"
         )
-        self.interpreter_combo.grid(row=2, column=1, padx=10, pady=10)
+        self.interpreter_entry.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
+        self.interpreter_button = customtkinter.CTkButton(
+            self.path_frame, text="浏览...", width=80, command=self.select_interpreter_dir
+        )
+        self.interpreter_button.grid(row=1, column=2, padx=10, pady=10)
 
         # 2. 编译按钮
         self.compile_button = customtkinter.CTkButton(
@@ -102,6 +86,13 @@ class App(customtkinter.CTk):
         # --- 线程通信设置 ---
         self.log_queue = queue.Queue()
 
+    def select_interpreter_dir(self):
+        """打开对话框选择解释器，选择python.exe文件"""
+        path = tkinter.filedialog.askopenfilename(title="选择解释器文件", filetypes=((".exe", "*.exe"),))
+        if path:
+            self.interpreter_entry.delete(0, "end")
+            self.interpreter_entry.insert(0, path)
+
     # --- 事件处理函数 ---
     def select_source_dir(self):
         """打开对话框选择源目录"""
@@ -109,13 +100,6 @@ class App(customtkinter.CTk):
         if path:
             self.source_entry.delete(0, "end")
             self.source_entry.insert(0, path)
-
-    def select_output_dir(self):
-        """打开对话框选择输出目录"""
-        path = tkinter.filedialog.askdirectory(title="选择输出目录")
-        if path:
-            self.output_entry.delete(0, "end")
-            self.output_entry.insert(0, path)
 
     def log_message(self, message):
         """线程安全地将日志消息放入队列"""
@@ -143,16 +127,11 @@ class App(customtkinter.CTk):
     def start_compilation(self):
         """点击“开始编译”按钮后触发"""
         source_dir = self.source_entry.get()
-        output_dir = self.output_entry.get()
 
-        interpreter = self.interpreter_combo.get()
-        if not interpreter:
-            messagebox.showerror("错误", "请选择一个用于编译的解释器！")
-            return
-        interpreter_file = os.path.join(interpreter_path, interpreter, 'python.exe')
+        interpreter_file = self.interpreter_entry.get()
 
-        if not source_dir or not output_dir:
-            messagebox.showerror("错误", "请同时选择源目录和输出目录！")
+        if not source_dir:
+            messagebox.showerror("错误", "请选择源目录！")
             return
 
         # 禁用按钮，清空日志，准备开始
@@ -167,15 +146,15 @@ class App(customtkinter.CTk):
         # 在新线程中运行编译任务，防止UI卡死
         compile_thread = threading.Thread(
             target=self.compile_thread_worker,
-            args=(source_dir, output_dir, interpreter_file),
+            args=(source_dir, interpreter_file),
             daemon=True,
         )
         compile_thread.start()
 
-    def compile_thread_worker(self, source_dir, output_dir, interpreter_file):
+    def compile_thread_worker(self, source_dir, interpreter_file):
         """这是在新线程中实际执行的函数"""
         try:
-            compile_project(source_dir, output_dir, self.log_message, interpreter_file)
+            compile_project(source_dir, self.log_message, interpreter_file)
         finally:
             # 任务结束后，发送一个完成信号到队列
             self.log_queue.put("COMPILATION_DONE")

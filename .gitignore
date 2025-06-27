@@ -1,0 +1,19 @@
+# 运行产生的文件
+fast_APi/error_reports/*.json
+fast_APi/cookies.json
+
+# 虚拟环境以及项目配置
+/.idea/
+/.venv/
+**/__pycache__/
+/__pycache__/
+*.pyc
+*.http
+/requests_http_test/
+.pyd
+/dist/
+/build/
+/db_integration/
+/db_integration_pyd/
+demo.py
+*.spec
