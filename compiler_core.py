@@ -47,9 +47,10 @@ def compile_project(source_dir: str, log_callback, interpreter_file):
 
         # 1. 查找所有 .py 文件
         log_callback("--- 步骤 1: 正在查找 .py 文件 ---")
-        py_files = [p for p in output_path.rglob("*.py") if p.name != "__init__.py"]
         py_files = [p for p in output_path.rglob("*.py")
-                    if p.name != "__init__.py" and ".venv" not in p.parts]
+                    if p.name != "__init__.py" and
+                    ".venv" not in p.parts
+                    and p.name != "main.py"]
 
         # 这种为每个文件创建 Extension 的方式最健壮，能确保模块导入路径正确
         extensions = []
@@ -149,7 +150,7 @@ def compile_project(source_dir: str, log_callback, interpreter_file):
 
 if __name__ == '__main__':
     # 示例用法
-    compile_project(r"D:\pyd-file-build\db_integration",  print, r'D:/Python312/python.exe')
+    compile_project(r"D:\pyd-file-build\db_integration", print, r'D:/Python312/python.exe')
 
 """
 Pyarmor 8.0+ has only 3 commands: gen, reg, cfg
