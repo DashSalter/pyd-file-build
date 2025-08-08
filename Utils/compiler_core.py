@@ -300,8 +300,3 @@ class CompileCore:
         self.log_callback(f"-程序结束运行,运行时间: {stop_time - start_time:.2f} 秒")
         self.log_callback(f"-编译结果已存放在: {self.output_path}")
         return None
-
-
-if __name__ == '__main__':
-    # 示例用法
-    CompileCore(r"D:\pyd-file-build\db_integration", print, r'D:/Python312/python.exe').start_compile_project()

@@ -5,8 +5,8 @@ import threading
 import queue
 from tkinter import messagebox
 # 导入我们的核心编译逻辑
-from compiler_core import CompileCore
-from config import Config
+from Utils.compiler_core import CompileCore
+from Utils.config import Config
 
 r"""
 [无命令窗口]
