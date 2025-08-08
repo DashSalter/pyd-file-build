@@ -4,6 +4,9 @@ import shutil
 import subprocess
 from pathlib import Path
 from textwrap import dedent
+import json
+import hashlib
+from datetime import datetime
 
 setup_template = """ # 生成 setup.py 文件
 from setuptools import setup, Extension
@@ -24,18 +27,57 @@ setup(
 """
 
 
+def get_file_hash(file_path):
+    """计算文件的 SHA256 哈希值"""
+    sha256 = hashlib.sha256()
+    try:
+        with open(file_path, "rb") as f:
+            while chunk := f.read(8192):
+                sha256.update(chunk)
+        return sha256.hexdigest()
+    except Exception as e:
+        print(f"[错误] 无法读取文件 {file_path}: {e}")
+        return None
+
+
 class CompileCore:
     def __init__(self, source_dir: str, log_callback, interpreter_file):
+        self.exclude_dirs = [".venv", ".git", "__pycache__", ".idea"]  # 拷贝要排除的目录名列表（支持通配符）
+        self.sep_len = 60  # 分割线长度
+        self.is_remove_exist_output_dir = False  # 是否删除已存在的输出目录
+
         self.source_dir = source_dir
+        self.source_file_name = os.path.basename(source_dir)  # 源文件名
+
         self.log_callback = log_callback
         self.interpreter_file = interpreter_file
-        self.exclude_dirs = [".venv", ".git", "__pycache__", ".idea"]  # 拷贝要排除的目录名列表（支持通配符）
 
         self.output_dir = ''  # 输出目录
         self.project_path: Path | None = None  # 源项目路径对象
         self.output_path: Path | None = None  # 输出目录对象
         self.setup_py_path: Path | None = None  # setup.py 文件路径
-        self.sep_len = 60  # 分割线长度
+
+        self.cache_file = Path(fr"pyd_cache\.{self.source_file_name}.json").resolve()  # 缓存文件路径
+        self.pyd_map = {}  # 保存编译后的.pyd 文件路径和文件名的映射关系
+
+    def load_cache(self):
+        """读取缓存数据"""
+        if not self.cache_file.exists():
+            return {}
+        try:
+            with open(self.cache_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            self.log_callback(f"[ 警告] 无法读取缓存文件: {e}")
+            return {}
+
+    def save_cache(self, cache_data):
+        """保存缓存数据"""
+        try:
+            with open(self.cache_file, 'w', encoding='utf-8') as f:
+                json.dump(cache_data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            self.log_callback(f"[ 警告] 无法保存缓存文件: {e}")
 
     def copy_the_folder(self) -> bool:
         """将项目进行复制"""
@@ -43,7 +85,7 @@ class CompileCore:
         file_path, file_name = os.path.split(self.source_dir)
         output_dir = os.path.join(file_path, file_name + "_pyd")  # 获取新的输出目录,名称后面+_pyd
         self.output_dir = output_dir
-        if os.path.exists(output_dir):
+        if os.path.exists(output_dir) and self.is_remove_exist_output_dir:
             try:  # 如果文件已经存在则先删除
                 shutil.rmtree(output_dir)
             except Exception as e:
@@ -78,17 +120,30 @@ class CompileCore:
         return True
 
     def find_py_files(self):
-        """查找所有 .py 文件"""
-        self.log_callback("--- 正在查找 py 文件 ---")
-        py_files = [
-            p for p in self.output_path.rglob("*.py")  # 递归查找所有 .py 文件
-            if p.name != "__init__.py"  # 排除 __init__.py 文件
-               and ".venv" not in p.parts  # 排除 .venv 目录
-               and p.name != "main.py"  # 排除 main.py 文件
-        ]
-        self.log_callback(f"找到 {len(py_files)} 个.py 文件")
+        """查找所有 .py 文件，并过滤出需要编译的"""
+        self.log_callback("---  正在查找需编译的 py 文件 ---")
+
+        py_files_to_compile = []
+        all_py_files = []
+        cache = self.load_cache()
+
+        for py_file in self.output_path.rglob("*.py"):
+            if py_file.name in ("__init__.py", "main.py") or ".venv" in py_file.parts:
+                continue
+
+            file_hash = get_file_hash(py_file)
+            relative_path = str(py_file.relative_to(self.output_path))
+            cached = cache.get(relative_path)
+
+            if cached and cached["hash"] == file_hash and os.path.exists(cached["pyd_path"]):
+                self.log_callback(f" 跳过已编译且未更改的文件: {relative_path}")
+            else:
+                py_files_to_compile.append(py_file)
+            all_py_files.append(py_file)
+
+        self.log_callback(f" 找到 {len(py_files_to_compile)} 个需编译的.py 文件")
         self.log_callback("-" * self.sep_len)
-        return py_files
+        return py_files_to_compile, all_py_files
 
     def create_setup(self, py_files):
         # 这种为每个文件创建 Extension 的方式最健壮，能确保模块导入路径正确
@@ -100,7 +155,6 @@ class CompileCore:
             extensions.append(f'Extension("{module_name}", [r"{relative_path}"])')
 
         setup_content = dedent(setup_template % (",\n    ".join(extensions)))
-        self.log_callback(setup_content)
         self.log_callback("--- setup_content 生成完成 ---")
         self.log_callback("-" * self.sep_len)
         return setup_content
@@ -110,6 +164,7 @@ class CompileCore:
         self.log_callback("\n--- 步骤 3: 正在清理临时文件 ---")
 
         for py_file in py_files:
+            print(py_file)
             os.remove(py_file)
         self.log_callback(f"  - 已清理{self.output_path}中的所有py文件")
 
@@ -117,17 +172,27 @@ class CompileCore:
             self.setup_py_path.unlink()
             self.log_callback("  - 已删除 setup.py")
 
+        build_dir = os.path.join(self.output_path, "build")
+        if os.path.exists(build_dir):
+            shutil.rmtree(build_dir)
+            self.log_callback("  - 已删除 build 目录")
+
         build_dir = os.path.join(self.project_path, "build")
         if os.path.exists(build_dir):
             shutil.rmtree(build_dir)
             self.log_callback("  - 已删除 build 目录")
+
+        c_files = self.output_path.rglob("*.c")
+        for c_file in c_files:
+            c_file.unlink()
+        self.log_callback(f"  - 已删除 {self.output_path} 中临时的 .c 文件")
 
         c_files = self.project_path.rglob("*.c")
         for c_file in c_files:
             c_file.unlink()
         self.log_callback(f"  - 已删除 {self.project_path} 中临时的 .c 文件")
 
-        self.log_callback("\n清理完成。")
+        self.log_callback("  - 清理任务执行完成。")
 
     def binary_compile(self, setup_content) -> bool:
         # 1. 编译 .py 文件为 .c 文件
@@ -158,11 +223,18 @@ class CompileCore:
         )
 
         # 实时读取输出并发送到UI
+        self.pyd_map.clear()
         while True:
             line = process.stdout.readline()
             if not line:
                 break
-            self.log_callback(line.strip())
+            out_data = line.strip()
+            self.log_callback(out_data)
+            if '/OUT:' in out_data:
+                pyd_path = out_data.split('/OUT:')[-1].split(r' /IMPLIB')[0]
+                file_name = os.path.basename(pyd_path).split('.')[0] + '.py'
+
+                self.pyd_map[file_name] = pyd_path
 
         process.wait()
 
@@ -173,6 +245,25 @@ class CompileCore:
         self.log_callback(f"\n[成功] 编译完成！编译结果已存放在: {self.output_path}")
         return True
 
+    def creat_cache(self, py_files):
+        # 执行编译命令后，更新缓存
+        cache = self.load_cache()
+        for py_file in py_files:
+            file_name = os.path.basename(py_file)
+            file_hash = get_file_hash(py_file)
+            pyd_path = self.pyd_map.get(file_name)
+
+            relative_path = Path(pyd_path).resolve()
+
+            if relative_path.exists():
+                cache[str(file_name)] = {
+                    "hash": file_hash,
+                    "pyd_path": str(pyd_path),
+                    "timestamp": datetime.now().isoformat()
+                }
+
+        self.save_cache(cache)
+
     def start_compile_project(self) -> None:
         if self.copy_the_folder() is False:
             return self.log_callback(f"运行终止，拷贝文件夹失败！")
@@ -180,14 +271,14 @@ class CompileCore:
         if self.get_input_output_dir() is False:
             return self.log_callback(f"运行终止，获取输入输出目录失败！")
 
-        py_files = self.find_py_files()  # 找到需要编译的py文件
-
+        py_files, all_py_files = self.find_py_files()  # 找到需要编译的py文件
         setup_content = self.create_setup(py_files)
-
         if self.binary_compile(setup_content) is False:
             return self.log_callback(f"运行终止，编译失败！")
 
-        self.clean_temp_files(py_files)
+        self.creat_cache(py_files)
+        self.clean_temp_files(all_py_files)
+        self.log_callback("程序结束运行")
         return None
 
 

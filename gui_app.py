@@ -1,6 +1,3 @@
-# gui_app.py
-# Cython 编译器图形用户界面
-import os
 import tkinter
 import tkinter.filedialog
 import customtkinter
@@ -9,7 +6,6 @@ import queue
 from tkinter import messagebox
 # 导入我们的核心编译逻辑
 from compiler_core import CompileCore
-from async_compile_example import main
 from config import Config
 
 r"""
