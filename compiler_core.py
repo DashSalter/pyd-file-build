@@ -164,7 +164,6 @@ class CompileCore:
         self.log_callback("\n--- 步骤 3: 正在清理临时文件 ---")
 
         for py_file in py_files:
-            print(py_file)
             os.remove(py_file)
         self.log_callback(f"  - 已清理{self.output_path}中的所有py文件")
 
