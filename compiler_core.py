@@ -129,6 +129,7 @@ class CompileCore:
         py_files_to_compile = []
         all_py_files = []
         cache = self.load_cache()
+        skip_files = 0
 
         for py_file in self.output_path.rglob("*.py"):
             if py_file.name in ("__init__.py", "main.py") or ".venv" in py_file.parts:
@@ -139,12 +140,13 @@ class CompileCore:
             cached = cache.get(relative_path)
 
             if cached and cached["hash"] == file_hash and os.path.exists(cached["pyd_path"]):
-                self.log_callback(f"  -跳过已编译且未更改的文件: {relative_path}")
+                skip_files += 1
             else:
                 py_files_to_compile.append(py_file)
             all_py_files.append(py_file)
 
-        self.log_callback(f"-找到 {len(py_files_to_compile)} 个需编译的.py 文件\n\n")
+        self.log_callback(f"  -已经编译完成 {skip_files} 个文件，这些文件将不再重复编译！")
+        self.log_callback(f"  -找到 {len(py_files_to_compile)} 个需编译的.py 文件\n\n")
 
         return py_files_to_compile, all_py_files
 
@@ -195,7 +197,7 @@ class CompileCore:
 
     def binary_compile(self, setup_content, py_files) -> bool:
         # 编译 .py 文件为 .c 文件
-        self.log_callback("[正在编译 py 文件]")
+        self.log_callback("[编译 py 文件]")
 
         self.setup_py_path = self.project_path / "setup.py"
         self.setup_py_path.write_text(setup_content, encoding='utf-8')
@@ -209,7 +211,7 @@ class CompileCore:
         num_cores = os.cpu_count() or 4
         cmd = [self.interpreter_file, "setup.py", "build_ext", "--build-lib", str(self.output_path),
                "--parallel", str(num_cores)]
-        self.log_callback(f"  -编译命令: {' '.join(cmd)}")
+        self.log_callback(f"  -编译命令: '{' '.join(cmd)}'")
 
         # Windows下，C编译器输出通常是GBK编码
         encoding = 'gbk' if sys.platform == 'win32' else 'utf-8'
@@ -235,11 +237,12 @@ class CompileCore:
             if '/OUT:' in out_data:
                 pyd_path = out_data.split('/OUT:')[-1].split(r' /IMPLIB')[0]
                 file_name = os.path.basename(pyd_path).split('.')[0] + '.py'
-                self.log_callback(f'  -[{s}/{py_files_count}]编译完成: {pyd_path}')
+                self.log_callback(f'  [{s}/{py_files_count}]:{pyd_path}')
                 self.pyd_map[file_name] = pyd_path
                 s += 1
-        # print(self.pyd_map,'self.pyd_map')
+
         process.wait()
+        self.creat_cache(py_files)
 
         if process.returncode != 0:
             self.log_callback(f"\n[错误] 编译过程返回错误码: {process.returncode}")
@@ -250,10 +253,9 @@ class CompileCore:
         return True
 
     def creat_cache(self, py_files):
-        self.log_callback(f"[创建缓存]")
 
         if not self.pyd_map:
-            self.log_callback(f"  -缓存映射文件为空\n\n")
+            self.log_callback(f"  -数据缓存映射已存在")
             return
 
         # 执行编译命令后，更新缓存
@@ -263,7 +265,6 @@ class CompileCore:
             file_hash = get_file_hash(py_file)
             pyd_path = self.pyd_map.get(file_name)
             if pyd_path is None:
-                print(pyd_path, 'pyd_path', file_name, self.pyd_map)
                 continue
 
             relative_path = py_file.relative_to(self.output_path)
@@ -275,7 +276,7 @@ class CompileCore:
                 }
 
         self.save_cache(cache)
-        self.log_callback(f"  -创建缓存完成\n\n")
+        self.log_callback(f"  -创建缓存完成")
 
     def start_compile_project(self) -> None:
         start_time = time.time()
@@ -287,12 +288,13 @@ class CompileCore:
             return self.log_callback(f"运行终止，获取输入输出目录失败！")
 
         py_files, all_py_files = self.find_py_files()  # 找到需要编译的py文件
-        setup_content = self.create_setup(py_files)
-        if self.binary_compile(setup_content, py_files) is False:
-            return self.log_callback(f"运行终止，编译失败！")
 
-        self.creat_cache(py_files)
-        self.clean_temp_files(all_py_files)
+        if py_files:
+            setup_content = self.create_setup(py_files)
+            if self.binary_compile(setup_content, py_files) is False:
+                return self.log_callback(f"运行终止，编译失败！请尝试重新进行编译操作！")
+
+            self.clean_temp_files(all_py_files)
 
         stop_time = time.time()
         self.log_callback(f"-程序结束运行,运行时间: {stop_time - start_time:.2f} 秒")
