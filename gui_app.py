@@ -1,12 +1,15 @@
 import tkinter
 import tkinter.filedialog
-import customtkinter
 import threading
 import queue
 from tkinter import messagebox
+
+import customtkinter
+
 # 导入我们的核心编译逻辑
 from Utils.compiler_core import CompileCore
 from Utils.config import Config
+import os
 
 r"""
 [无命令窗口]
@@ -19,18 +22,21 @@ class App(customtkinter.CTk):
     def __init__(self):
         super().__init__()
 
-        # --- 窗口基础设置 ---
+        # --- 窗口基础设置 --- 使用黑夜主题
         self.title("Cython (.pyd) 编译器")
         self.geometry("1200x750")
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
 
         # 设置UI主题
-        customtkinter.set_appearance_mode("System")  # 模式: System, Dark, Light
-        customtkinter.set_default_color_theme("blue")  # 主题: blue, dark-blue, green
+        if Config.theme.value:
+            customtkinter.set_appearance_mode("Dark")  # 模式: System, Dark, Light
+            customtkinter.set_default_color_theme("dark-blue")  # 主题: blue, dark-blue, green
+        else:
+            customtkinter.set_appearance_mode("Light")  # 模式: System, Dark, Light
+            customtkinter.set_default_color_theme("blue")  # 主题: blue, dark-blue, green
 
         # --- UI 控件创建 ---
-
         # 1. 路径选择框架
         self.path_frame = customtkinter.CTkFrame(self, corner_radius=10)
         self.path_frame.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
@@ -38,7 +44,7 @@ class App(customtkinter.CTk):
 
         # 源目录
         self.source_label = customtkinter.CTkLabel(
-            self.path_frame, text="源目录:", width=100
+            self.path_frame, text="源目录:", width=50
         )
         self.source_label.grid(row=0, column=0, padx=10, pady=10)
         self.source_entry = customtkinter.CTkEntry(
@@ -49,11 +55,11 @@ class App(customtkinter.CTk):
         self.source_button = customtkinter.CTkButton(
             self.path_frame, text="浏览...", width=80, command=self.select_source_dir
         )
-        self.source_button.grid(row=0, column=2, padx=10, pady=10)
+        self.source_button.grid(row=0, column=2, padx=10, pady=10, sticky="w")
 
         # 选择解释器
         self.interpreter_label = customtkinter.CTkLabel(
-            self.path_frame, text="编译解释器:", width=100
+            self.path_frame, text="解释器:", width=50
         )
         self.interpreter_label.grid(row=1, column=0, padx=10, pady=10)
 
@@ -65,13 +71,30 @@ class App(customtkinter.CTk):
         self.interpreter_button = customtkinter.CTkButton(
             self.path_frame, text="浏览...", width=80, command=self.select_interpreter_dir
         )
-        self.interpreter_button.grid(row=1, column=2, padx=10, pady=10)
+        self.interpreter_button.grid(row=1, column=2, padx=10, pady=10, sticky="w")
+
+        # 选择解释器
+        self.output_label = customtkinter.CTkLabel(
+            self.path_frame, text="输出目录:", width=50
+        )
+        self.output_label.grid(row=2, column=0, padx=10, pady=10)
+
+        self.output_entry = customtkinter.CTkEntry(
+            self.path_frame, placeholder_text="请选择解释器python.exe文件"
+        )
+        self.output_entry.grid(row=2, column=1, padx=10, pady=10, sticky="ew")
+        self.output_entry.insert(0, Config.output_path.value)
+        self.output_button = customtkinter.CTkButton(
+            self.path_frame, text="浏览...", width=80, command=self.select_output_dir
+        )
+        self.output_entry.bind("<KeyRelease>", self.on_entry_change)  # 绑定事件
+        self.output_button.grid(row=2, column=2, padx=10, pady=10, sticky="w")
 
         # 功能选项
         self.functional_options = customtkinter.CTkLabel(
-            self.path_frame, text="功能选项:", width=100
+            self.path_frame, text="功能选项:", width=50
         )
-        self.functional_options.grid(row=2, column=0, padx=10, pady=10)
+        self.functional_options.grid(row=3, column=0, padx=10, pady=10)
 
         # 添加一个开关
         self.switch_var = tkinter.BooleanVar()
@@ -82,26 +105,56 @@ class App(customtkinter.CTk):
         self.switch = customtkinter.CTkSwitch(
             self.path_frame, text="压缩成zip压缩包", variable=self.switch_var
         )
-        self.switch.grid(row=2, column=1, padx=10, pady=10, sticky="w")
+        self.switch.grid(row=3, column=1, padx=10, pady=10, sticky="w")
 
-        # 2. 编译按钮
+        # 添加主题切换开关
+        self.theme_var = tkinter.BooleanVar()
+        self.theme_var.set(Config.theme.value)
+        self.theme_var_check = customtkinter.CTkSwitch(
+            self.path_frame, text="切换主题", variable=self.theme_var, command=self.change_theme
+        )
+        self.theme_var_check.grid(row=3, column=1, padx=10, pady=10)
+
+        # 2. 编译按钮 按钮放最右边 背景颜色修改
         self.compile_button = customtkinter.CTkButton(
-            self,
+            self.path_frame,
             text="开始编译",
             height=40,
             font=("", 16),
             command=self.start_compilation,
         )
-        self.compile_button.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
+        self.compile_button.grid(row=3, column=2, padx=10, pady=10)
 
         # 3. 日志输出文本框
         self.log_textbox = customtkinter.CTkTextbox(
             self, corner_radius=10, state="disabled", font=("", 13)
         )
-        self.log_textbox.grid(row=2, column=0, padx=20, pady=20, sticky="nsew")
+        self.log_textbox.grid(row=2, column=0, padx=20, pady=(0, 10), sticky="nsew")
 
         # --- 线程通信设置 ---
         self.log_queue = queue.Queue()
+
+    def change_theme(self):
+        """切换主题"""
+        if self.theme_var.get():
+            customtkinter.set_appearance_mode("Dark")  # 模式: System, Dark, Light
+            customtkinter.set_default_color_theme("dark-blue")  # 主题: blue, dark-blue, green
+        else:
+            customtkinter.set_appearance_mode("Light")  # 模式: System, Dark, Light
+            customtkinter.set_default_color_theme("blue")  # 主题: blue, dark-blue, green
+        Config.theme.value = bool(self.theme_var.get())
+
+    def on_entry_change(self, event):
+        current_text = self.output_entry.get()  # 获取当前输入框内容
+        Config.output_path.value = current_text
+
+    def select_output_dir(self):
+        """打开对话框选择输出目录"""
+        path = tkinter.filedialog.askdirectory(title="选择输出目目录")
+        if path:
+            self.output_entry.delete(0, "end")
+            self.output_entry.insert(0, path)
+            Config.output_path.value = path
 
     def select_interpreter_dir(self):
         """打开对话框选择解释器，选择python.exe文件"""
@@ -119,6 +172,11 @@ class App(customtkinter.CTk):
             self.source_entry.delete(0, "end")
             self.source_entry.insert(0, path)
             Config.project_path.value = path
+            file_path, file_name = os.path.split(path)
+            output_dir = os.path.join(file_path, file_name + "_pyd")
+            Config.output_path.value = output_dir
+            self.output_entry.delete(0, "end")
+            self.output_entry.insert(0, output_dir)
 
     def log_message(self, message):
         """线程安全地将日志消息放入队列"""
@@ -165,15 +223,14 @@ class App(customtkinter.CTk):
         # 在新线程中运行编译任务，防止UI卡死
         compile_thread = threading.Thread(
             target=self.compile_thread_worker,
-            args=(source_dir, interpreter_file),
             daemon=True,
         )
         compile_thread.start()
 
-    def compile_thread_worker(self, source_dir, interpreter_file):
+    def compile_thread_worker(self):
         """这是在新线程中实际执行的函数"""
         try:
-            CompileCore(source_dir, self.log_message, interpreter_file).start_compile_project(self.switch_var.get())
+            CompileCore(self.log_message).start_compile_project(self.switch_var.get())
         finally:
             # 任务结束后，发送一个完成信号到队列
             self.log_queue.put("COMPILATION_DONE")

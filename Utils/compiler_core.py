@@ -43,22 +43,23 @@ def get_file_hash(file_path):
 
 
 class CompileCore:
-    def __init__(self, source_dir: str, log_callback, interpreter_file):
+    def __init__(self, log_callback):
         self.exclude_dirs = Config.exclude_dirs.value  # 拷贝要排除的目录名列表（支持通配符）
 
         self.is_remove_exist_output_dir = Config.is_remove_exist_output_dir.value  # 是否删除已存在的输出目录
 
-        self.source_dir = source_dir
-        self.source_file_name = os.path.basename(source_dir)  # 源文件名
+        self.source_dir = Config.project_path.value
+
 
         self.log_callback = log_callback
-        self.interpreter_file = interpreter_file
+        self.interpreter_file = Config.interpreter_path.value
 
-        self.output_dir = ''  # 输出目录
+        self.output_dir = Config.output_path.value  # 输出目录
         self.project_path: Path | None = None  # 源项目路径对象
         self.output_path: Path | None = None  # 输出目录对象
         self.setup_py_path: Path | None = None  # setup.py 文件路径
 
+        self.source_file_name = os.path.basename(self.output_dir)  # 源文件名
         self.cache_file = Path(fr"pyd_cache\.{self.source_file_name}.json").resolve()  # 缓存文件路径
         self.pyd_map = {}  # 保存编译后的.pyd 文件路径和文件名的映射关系
 
@@ -85,9 +86,8 @@ class CompileCore:
         """将项目进行复制"""
         self.log_callback(f"[拷贝目录]")
         # 拷贝整个文件夹，并且将最外面的文件夹重命名
-        file_path, file_name = os.path.split(self.source_dir)
-        output_dir = os.path.join(file_path, file_name + "_pyd")  # 获取新的输出目录,名称后面+_pyd
-        self.output_dir = output_dir
+        output_dir = self.output_dir  # 获取新的输出目录,名称后面+_pyd
+
         if os.path.exists(output_dir) and self.is_remove_exist_output_dir:
             try:  # 如果文件已经存在则先删除
                 shutil.rmtree(output_dir)
@@ -98,7 +98,7 @@ class CompileCore:
 
         self.log_callback(f"  -开始拷贝目录")
         shutil.copytree(
-            self.source_dir, output_dir, dirs_exist_ok=True, ignore=shutil.ignore_patterns(*self.exclude_dirs)
+            self.source_dir, str(output_dir), dirs_exist_ok=True, ignore=shutil.ignore_patterns(*self.exclude_dirs)
         )
         self.log_callback(f"  -目录拷贝完成\n\n")
 

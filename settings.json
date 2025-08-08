@@ -6,9 +6,12 @@
             ".venv",
             ".git",
             "__pycache__",
-            ".idea"
+            ".idea",
+            "*.json"
         ],
         "is_remove_exist_output_dir": false,
-        "default_is_compress": false
+        "default_is_compress": false,
+        "output": "D:/demo_pydd_pyd",
+        "theme": true
     }
 }
