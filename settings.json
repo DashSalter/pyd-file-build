@@ -1,6 +1,14 @@
 {
     "ProgramPath": {
-        "host": "D:/Multi-Platform-Intelligent-Collection-System",
-        "user": "D:/Python310/python.exe"
+        "host": "D:/demo_pydd",
+        "user": "D:/Python310/python.exe",
+        "exclude_dirs": [
+            ".venv",
+            ".git",
+            "__pycache__",
+            ".idea"
+        ],
+        "is_remove_exist_output_dir": false,
+        "default_is_compress": false
     }
 }

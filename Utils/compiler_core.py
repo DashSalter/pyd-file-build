@@ -8,6 +8,7 @@ import json
 import hashlib
 from datetime import datetime
 import time
+from Utils.config import Config
 
 setup_template = """ # 生成 setup.py 文件
 from setuptools import setup, Extension
@@ -43,9 +44,9 @@ def get_file_hash(file_path):
 
 class CompileCore:
     def __init__(self, source_dir: str, log_callback, interpreter_file):
-        self.exclude_dirs = [".venv", ".git", "__pycache__", ".idea"]  # 拷贝要排除的目录名列表（支持通配符）
+        self.exclude_dirs = Config.exclude_dirs.value  # 拷贝要排除的目录名列表（支持通配符）
 
-        self.is_remove_exist_output_dir = False  # 是否删除已存在的输出目录
+        self.is_remove_exist_output_dir = Config.is_remove_exist_output_dir.value  # 是否删除已存在的输出目录
 
         self.source_dir = source_dir
         self.source_file_name = os.path.basename(source_dir)  # 源文件名
@@ -278,7 +279,7 @@ class CompileCore:
         self.save_cache(cache)
         self.log_callback(f"  -创建缓存完成")
 
-    def start_compile_project(self) -> None:
+    def start_compile_project(self, compression) -> None:
         start_time = time.time()
 
         if self.copy_the_folder() is False:
@@ -296,7 +297,30 @@ class CompileCore:
 
             self.clean_temp_files(all_py_files)
 
+        if compression:
+            self.log_callback(f"[压缩输出目录]")
+            self.compression_file(str(self.output_path))
+            self.log_callback(f"  -压缩完成!压缩文件已存放在: {self.output_path}.zip\n\n")
+
         stop_time = time.time()
         self.log_callback(f"-程序结束运行,运行时间: {stop_time - start_time:.2f} 秒")
         self.log_callback(f"-编译结果已存放在: {self.output_path}")
         return None
+
+    @staticmethod
+    def compression_file(src_dir: str) -> None:
+        """输入指定文件绝对路径，将文件所在文件夹压缩成zip格式"""
+        from os import walk, path, sep, remove
+        from zipfile import ZipFile, ZIP_DEFLATED
+
+        zip_file_path = src_dir + '.zip'
+        if path.exists(zip_file_path):
+            remove(zip_file_path)
+
+        with ZipFile(zip_file_path, 'w', ZIP_DEFLATED) as f:
+            for dir_path, dir_names, filenames in walk(src_dir):
+                file_path = dir_path.replace(src_dir, '')
+                file_path = file_path and file_path + sep or ''
+
+                for filename in filenames:  # 压缩文件写入
+                    f.write(path.join(dir_path, filename), file_path + filename)

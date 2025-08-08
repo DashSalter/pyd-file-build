@@ -67,6 +67,23 @@ class App(customtkinter.CTk):
         )
         self.interpreter_button.grid(row=1, column=2, padx=10, pady=10)
 
+        # 功能选项
+        self.functional_options = customtkinter.CTkLabel(
+            self.path_frame, text="功能选项:", width=100
+        )
+        self.functional_options.grid(row=2, column=0, padx=10, pady=10)
+
+        # 添加一个开关
+        self.switch_var = tkinter.BooleanVar()
+        if Config.default_is_compress.value:
+            self.switch_var.set(True)
+        else:
+            self.switch_var.set(False)
+        self.switch = customtkinter.CTkSwitch(
+            self.path_frame, text="压缩成zip压缩包", variable=self.switch_var
+        )
+        self.switch.grid(row=2, column=1, padx=10, pady=10, sticky="w")
+
         # 2. 编译按钮
         self.compile_button = customtkinter.CTkButton(
             self,
@@ -156,7 +173,7 @@ class App(customtkinter.CTk):
     def compile_thread_worker(self, source_dir, interpreter_file):
         """这是在新线程中实际执行的函数"""
         try:
-            CompileCore(source_dir, self.log_message, interpreter_file).start_compile_project()
+            CompileCore(source_dir, self.log_message, interpreter_file).start_compile_project(self.switch_var.get())
         finally:
             # 任务结束后，发送一个完成信号到队列
             self.log_queue.put("COMPILATION_DONE")
