@@ -110,8 +110,12 @@ class App(customtkinter.CTk):
         # 添加主题切换开关
         self.theme_var = tkinter.BooleanVar()
         self.theme_var.set(Config.theme.value)
+        if Config.theme.value:
+            text = '黑夜'
+        else:
+            text = '白天'
         self.theme_var_check = customtkinter.CTkSwitch(
-            self.path_frame, text="切换主题", variable=self.theme_var, command=self.change_theme
+            self.path_frame, text=text, variable=self.theme_var, command=self.change_theme
         )
         self.theme_var_check.grid(row=3, column=1, padx=10, pady=10)
 
@@ -139,9 +143,11 @@ class App(customtkinter.CTk):
         if self.theme_var.get():
             customtkinter.set_appearance_mode("Dark")  # 模式: System, Dark, Light
             customtkinter.set_default_color_theme("dark-blue")  # 主题: blue, dark-blue, green
+            self.theme_var_check.configure(text='黑夜')
         else:
             customtkinter.set_appearance_mode("Light")  # 模式: System, Dark, Light
             customtkinter.set_default_color_theme("blue")  # 主题: blue, dark-blue, green
+            self.theme_var_check.configure(text='白天')
         Config.theme.value = bool(self.theme_var.get())
 
     def on_entry_change(self, event):
