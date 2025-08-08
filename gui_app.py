@@ -8,7 +8,9 @@ import threading
 import queue
 from tkinter import messagebox
 # 导入我们的核心编译逻辑
-from compiler_core import compile_project
+from compiler_core import CompileCore
+from async_compile_example import main
+from config import Config
 
 r"""
 [无命令窗口]
@@ -23,7 +25,7 @@ class App(customtkinter.CTk):
 
         # --- 窗口基础设置 ---
         self.title("Cython (.pyd) 编译器")
-        self.geometry("800x600")
+        self.geometry("1200x750")
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
 
@@ -47,6 +49,7 @@ class App(customtkinter.CTk):
             self.path_frame, placeholder_text="请选择包含 .py 文件的项目目录"
         )
         self.source_entry.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
+        self.source_entry.insert(0, Config.project_path.value)
         self.source_button = customtkinter.CTkButton(
             self.path_frame, text="浏览...", width=80, command=self.select_source_dir
         )
@@ -62,6 +65,7 @@ class App(customtkinter.CTk):
             self.path_frame, placeholder_text="请选择解释器python.exe文件"
         )
         self.interpreter_entry.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
+        self.interpreter_entry.insert(0, Config.interpreter_path.value)
         self.interpreter_button = customtkinter.CTkButton(
             self.path_frame, text="浏览...", width=80, command=self.select_interpreter_dir
         )
@@ -92,6 +96,7 @@ class App(customtkinter.CTk):
         if path:
             self.interpreter_entry.delete(0, "end")
             self.interpreter_entry.insert(0, path)
+            Config.interpreter_path.value = path
 
     # --- 事件处理函数 ---
     def select_source_dir(self):
@@ -100,6 +105,7 @@ class App(customtkinter.CTk):
         if path:
             self.source_entry.delete(0, "end")
             self.source_entry.insert(0, path)
+            Config.project_path.value = path
 
     def log_message(self, message):
         """线程安全地将日志消息放入队列"""
@@ -154,7 +160,7 @@ class App(customtkinter.CTk):
     def compile_thread_worker(self, source_dir, interpreter_file):
         """这是在新线程中实际执行的函数"""
         try:
-            compile_project(source_dir, self.log_message, interpreter_file)
+            CompileCore(source_dir, self.log_message, interpreter_file).start_compile_project()
         finally:
             # 任务结束后，发送一个完成信号到队列
             self.log_queue.put("COMPILATION_DONE")
