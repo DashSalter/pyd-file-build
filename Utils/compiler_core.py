@@ -50,7 +50,6 @@ class CompileCore:
 
         self.source_dir = Config.project_path.value
 
-
         self.log_callback = log_callback
         self.interpreter_file = Config.interpreter_path.value
 
@@ -214,12 +213,9 @@ class CompileCore:
                "--parallel", str(num_cores)]
         self.log_callback(f"  -编译命令: '{' '.join(cmd)}'")
 
-        # Windows下，C编译器输出通常是GBK编码
-        encoding = 'gbk' if sys.platform == 'win32' else 'utf-8'
-
         process = subprocess.Popen(
             cmd, cwd=self.project_path, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, encoding=encoding, errors='replace'
+            text=True, encoding='utf-8', errors='replace'
         )
 
         # 实时读取输出并发送到UI

@@ -1,6 +1,6 @@
 {
     "ProgramPath": {
-        "host": "D:/demo_pydd",
+        "host": "D:/加密核心",
         "user": "D:/Python310/python.exe",
         "exclude_dirs": [
             ".venv",
@@ -11,7 +11,7 @@
         ],
         "is_remove_exist_output_dir": false,
         "default_is_compress": false,
-        "output": "D:/demo_pydd_pyd",
+        "output": "D:/加密核心_pyd",
         "theme": true
     }
 }
