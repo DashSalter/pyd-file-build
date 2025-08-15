@@ -1,6 +1,6 @@
 {
     "ProgramPath": {
-        "host": "D:/加密核心",
+        "host": "D:/Multi-Platform-Intelligent-Collection-System",
         "user": "D:/Python310/python.exe",
         "exclude_dirs": [
             ".venv",
@@ -11,7 +11,7 @@
         ],
         "is_remove_exist_output_dir": false,
         "default_is_compress": false,
-        "output": "D:/加密核心_pyd",
+        "output": "D:/Multi-Platform-Intelligent-Collection-System_pyd",
         "theme": true
     }
 }
