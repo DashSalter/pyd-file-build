@@ -63,15 +63,17 @@ class App(customtkinter.CTk):
         )
         self.interpreter_label.grid(row=1, column=0, padx=10, pady=10)
 
-        self.interpreter_entry = customtkinter.CTkEntry(
-            self.path_frame, placeholder_text="请选择解释器python.exe文件"
+        interpreter_list = Config.interpreter_path.value
+        interpreter_index = Config.interpreter_index.value
+        self.interpreter_entry = customtkinter.CTkComboBox(
+            self.path_frame, values=interpreter_list
         )
+        if interpreter_list:
+            self.interpreter_entry.set(interpreter_list[interpreter_index])
         self.interpreter_entry.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
-        self.interpreter_entry.insert(0, Config.interpreter_path.value)
-        self.interpreter_button = customtkinter.CTkButton(
-            self.path_frame, text="浏览...", width=80, command=self.select_interpreter_dir
-        )
-        self.interpreter_button.grid(row=1, column=2, padx=10, pady=10, sticky="w")
+
+        self.interpreter_entry.configure(command=self.on_select)  # 绑定选择事件
+
 
         # 选择解释器
         self.output_label = customtkinter.CTkLabel(
@@ -162,13 +164,20 @@ class App(customtkinter.CTk):
             self.output_entry.insert(0, path)
             Config.output_path.value = path
 
-    def select_interpreter_dir(self):
-        """打开对话框选择解释器，选择python.exe文件"""
-        path = tkinter.filedialog.askopenfilename(title="选择解释器文件", filetypes=((".exe", "*.exe"),))
-        if path:
-            self.interpreter_entry.delete(0, "end")
-            self.interpreter_entry.insert(0, path)
-            Config.interpreter_path.value = path
+    # 3. 获取选中项的索引
+    def on_select(self, event=None):
+        selected_value = self.interpreter_entry.get()
+        selected_index = Config.interpreter_path.value.index(selected_value)  # 通过值反查索引
+        # print(f"选中值: {selected_value}, 索引: {selected_index}")
+        Config.interpreter_index.value = selected_index
+
+    # def select_interpreter_dir(self):
+    #     """打开对话框选择解释器，选择python.exe文件"""
+    #     path = tkinter.filedialog.askopenfilename(title="选择解释器文件", filetypes=((".exe", "*.exe"),))
+    #     if path:
+    #         self.interpreter_entry.delete(0, "end")
+    #         self.interpreter_entry.insert(0, path)
+    #         Config.interpreter_path.value = path
 
     # --- 事件处理函数 ---
     def select_source_dir(self):

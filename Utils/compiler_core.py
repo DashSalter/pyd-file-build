@@ -1,5 +1,4 @@
 import os
-import sys
 import shutil
 import subprocess
 from pathlib import Path
@@ -9,6 +8,7 @@ import hashlib
 from datetime import datetime
 import time
 from Utils.config import Config
+import subprocess
 
 setup_template = """ # 生成 setup.py 文件
 from setuptools import setup, Extension
@@ -51,14 +51,18 @@ class CompileCore:
         self.source_dir = Config.project_path.value
 
         self.log_callback = log_callback
-        self.interpreter_file = Config.interpreter_path.value
+        self.interpreter_file = Config.interpreter_path.value[Config.interpreter_index.value]
 
-        self.output_dir = Config.output_path.value  # 输出目录
+        result = subprocess.run([self.interpreter_file, "--version"], capture_output=True, text=True)
+        python_version = result.stdout.strip().replace('Python ', '')
+
+        self.output_dir = f'{Config.output_path.value}_{python_version}'  # 输出目录
         self.project_path: Path | None = None  # 源项目路径对象
         self.output_path: Path | None = None  # 输出目录对象
         self.setup_py_path: Path | None = None  # setup.py 文件路径
 
         self.source_file_name = os.path.basename(self.output_dir)  # 源文件名
+
         self.cache_file = Path(fr"pyd_cache\.{self.source_file_name}.json").resolve()  # 缓存文件路径
         self.pyd_map = {}  # 保存编译后的.pyd 文件路径和文件名的映射关系
 
@@ -77,7 +81,7 @@ class CompileCore:
         """保存缓存数据"""
         try:
             with open(self.cache_file, 'w', encoding='utf-8') as f:
-                json.dump(cache_data, f, indent=2, ensure_ascii=False)
+                json.dump(cache_data, f, indent=2, ensure_ascii=False)  # type: ignore
         except Exception as e:
             self.log_callback(f"[ 警告] 无法保存缓存文件: {e}")
 
@@ -118,7 +122,8 @@ class CompileCore:
             return False
 
         self.log_callback(f"  -源目录: {self.project_path}")
-        self.log_callback(f"  -输出目录: {self.output_path}\n\n")
+        self.log_callback(f"  -输出目录: {self.output_path}")
+        self.log_callback(f"  -解释器路径: {self.interpreter_file}\n\n")
 
         return True
 
@@ -299,8 +304,9 @@ class CompileCore:
             self.log_callback(f"  -压缩完成!压缩文件已存放在: {self.output_path}.zip\n\n")
 
         stop_time = time.time()
-        self.log_callback(f"-程序结束运行,运行时间: {stop_time - start_time:.2f} 秒")
-        self.log_callback(f"-编译结果已存放在: {self.output_path}")
+        self.log_callback(f"[运行结果]")
+        self.log_callback(f"  -程序结束运行,运行时间: {stop_time - start_time:.2f} 秒")
+        self.log_callback(f"  -编译结果已存放在: {self.output_path}")
         return None
 
     @staticmethod

@@ -1,17 +1,22 @@
 {
     "ProgramPath": {
-        "host": "D:/Multi-Platform-Intelligent-Collection-System",
-        "user": "D:/Python310/python.exe",
         "exclude_dirs": [
             ".venv",
             ".git",
             "__pycache__",
-            ".idea",
-            "*.json"
+            ".idea"
         ],
         "is_remove_exist_output_dir": false,
         "default_is_compress": false,
         "output": "D:/Multi-Platform-Intelligent-Collection-System_pyd",
-        "theme": true
+        "theme": true,
+        "project_path": "D:/Multi-Platform-Intelligent-Collection-System",
+        "interpreter_path": [
+            "D:\\Python310\\python.exe",
+            "D:\\Python311\\python.exe",
+            "D:\\Python312\\python.exe"
+        ],
+        "interpreter_index": 0,
+        "output_path": "D:/Multi-Platform-Intelligent-Collection-System_pyd"
     }
 }
