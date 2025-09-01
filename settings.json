@@ -17,6 +17,13 @@
             "D:\\Python312\\python.exe"
         ],
         "interpreter_index": 0,
-        "output_path": "D:/Multi-Platform-Intelligent-Collection-System_pyd"
+        "output_path": "D:/Multi-Platform-Intelligent-Collection-System_pyd",
+        "exclude_files": [
+            "README.md",
+            "LICENSE",
+            "requirements.txt",
+            "cookies.json",
+            ".gitignore"
+        ]
     }
 }

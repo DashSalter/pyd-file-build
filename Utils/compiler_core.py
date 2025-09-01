@@ -45,6 +45,7 @@ def get_file_hash(file_path):
 class CompileCore:
     def __init__(self, log_callback):
         self.exclude_dirs = Config.exclude_dirs.value  # 拷贝要排除的目录名列表（支持通配符）
+        self.exclude_files = Config.exclude_files.value  # 拷贝要排除的文件名列表（支持通配符）
 
         self.is_remove_exist_output_dir = Config.is_remove_exist_output_dir.value  # 是否删除已存在的输出目录
 
@@ -85,6 +86,33 @@ class CompileCore:
         except Exception as e:
             self.log_callback(f"[ 警告] 无法保存缓存文件: {e}")
 
+    def combined_ignore(self,dirname, filenames):
+        ignore_set = set()
+
+        # 1. 先过滤文件模式
+        file_pattern_ignore = shutil.ignore_patterns(*self.exclude_files)(dirname, filenames)
+        ignore_set.update(file_pattern_ignore)
+
+        # 2. 正确过滤目录（仅当是目录时才过滤）
+        for name in filenames:
+            full_path = os.path.join(dirname, name)
+            if name in self.exclude_dirs and os.path.isdir(full_path):  # 关键修正：验证路径类型
+                ignore_set.add(name)
+
+                # 3. 过滤大文件（可选）
+        for name in filenames:
+            full_path = os.path.join(dirname, name)
+            if os.path.isfile(full_path):
+                try:
+                    if os.path.getsize(full_path) > 100 * 1024 * 1024:  # 100MB
+                        ignore_set.add(name)
+                except OSError:  # 处理权限问题
+                    ignore_set.add(name)
+
+        if ignore_set:
+            print(f"[忽略] 目录 {dirname} 下的 {ignore_set} 文件")
+        return ignore_set
+
     def copy_the_folder(self) -> bool:
         """将项目进行复制"""
         self.log_callback(f"[拷贝目录]")
@@ -101,7 +129,7 @@ class CompileCore:
 
         self.log_callback(f"  -开始拷贝目录")
         shutil.copytree(
-            self.source_dir, str(output_dir), dirs_exist_ok=True, ignore=shutil.ignore_patterns(*self.exclude_dirs)
+            self.source_dir, str(output_dir), dirs_exist_ok=True, ignore=self.combined_ignore
         )
         self.log_callback(f"  -目录拷贝完成\n\n")
 
