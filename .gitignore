@@ -1,20 +1,19 @@
-# 运行产生的文件
-fast_APi/error_reports/*.json
-fast_APi/cookies.json
-
-# 虚拟环境以及项目配置
-/.idea/
+# 虚拟环境
 /.venv/
-**/__pycache__/
-/__pycache__/
-*.pyc
-*.http
-/requests_http_test/
-.pyd
+
+# Python 缓存与构建产物
+__pycache__/
+*.py[cod]
+*.egg-info/
 /dist/
 /build/
-/db_integration/
-/db_integration_pyd/
-demo.py
-*.spec
-/pyd_cache/*.json
+/*.spec
+
+# 运行时数据：界面配置（首次运行自动生成）
+/config.json
+
+# IDE
+/.idea/
+
+# ����̽����ʱ���
+.probe_*.txt
